@@ -5,7 +5,7 @@
 // Enumer is a tool to generate Go code that adds useful methods to Go enums (constants with a specific type).
 // It started as a fork of Rob Pike’s Stringer tool
 //
-// Please visit http://github.com/dmarkham/enumer for a comprehensive documentation
+// Please visit http://github.com/corvee-ninja/enumer for a comprehensive documentation
 package main
 
 import (
@@ -72,7 +72,7 @@ func Usage() {
 	_, _ = fmt.Fprintf(os.Stderr, "\tEnumer [flags] -type T [directory]\n")
 	_, _ = fmt.Fprintf(os.Stderr, "\tEnumer [flags] -type T files... # Must be a single package\n")
 	_, _ = fmt.Fprintf(os.Stderr, "For more information, see:\n")
-	_, _ = fmt.Fprintf(os.Stderr, "\thttp://godoc.org/github.com/dmarkham/enumer\n")
+	_, _ = fmt.Fprintf(os.Stderr, "\thttp://godoc.org/github.com/corvee-ninja/enumer\n")
 	_, _ = fmt.Fprintf(os.Stderr, "Flags:\n")
 	flag.PrintDefaults()
 }
@@ -145,7 +145,7 @@ func main() {
 	// Figure out filename to write to
 	outputName := *output
 	if outputName == "" {
-		baseName := fmt.Sprintf("%s_enumer.go", typs[0])
+		baseName := fmt.Sprintf("%s_enumer.gen.go", typs[0])
 		outputName = filepath.Join(dir, strings.ToLower(baseName))
 	}
 
