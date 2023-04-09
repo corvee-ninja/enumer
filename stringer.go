@@ -859,19 +859,25 @@ func (g *Generator) buildMultipleRuns(runs [][]Value, typeName string) {
 
 // buildMap handles the case where the space is so sparse a map is a reasonable fallback.
 // It's a rare situation but has simple code.
-func (g *Generator) buildMap(runs [][]Value, typeName string) {
+func (g *Generator) buildMap(runs [][]Value, typeName string, typeIsString bool) {
 	g.Printf("\n")
 	g.declareNameVars(runs, typeName, "")
-	g.Printf("\nvar _%sMap = map[%s]string{\n", typeName, typeName)
-	n := 0
-	for _, values := range runs {
-		for _, value := range values {
-			g.Printf("\t%s: _%sName[%d:%d],\n", &value, typeName, n, n+len(value.name))
-			n += len(value.name)
+
+	if typeIsString {
+		g.Printf("\n")
+		g.Printf(stringMapString, typeName)
+	} else {
+		g.Printf("\nvar _%sMap = map[%s]string{\n", typeName, typeName)
+		n := 0
+		for _, values := range runs {
+			for _, value := range values {
+				g.Printf("\t%s: _%sName[%d:%d],\n", &value, typeName, n, n+len(value.name))
+				n += len(value.name)
+			}
 		}
+		g.Printf("}\n\n")
+		g.Printf(stringMap, typeName)
 	}
-	g.Printf("}\n\n")
-	g.Printf(stringMap, typeName)
 }
 
 // buildNoOpOrderChangeDetect try to let the compiler and the user know if the order/value of the ENUMS have changed.
@@ -898,5 +904,11 @@ const stringMap = `func (i %[1]s) String() string {
 		return str
 	}
 	return fmt.Sprintf("%[1]s(%%d)", i)
+}
+`
+
+// Argument to format is the type name.
+const stringMapString = `func (i %[1]s) String() string {
+	return string(i)
 }
 `
