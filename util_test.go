@@ -12,8 +12,10 @@ import (
 )
 
 // Helpers to save typing in the test cases.
-type u []uint64
-type uu [][]uint64
+type (
+	u  []uint64
+	uu [][]uint64
+)
 
 type SplitTest struct {
 	input  u
@@ -54,9 +56,9 @@ Outer:
 	for n, test := range splitTests {
 		values := make([]Value, len(test.input))
 		for i, v := range test.input {
-			values[i] = Value{"", "", v, test.signed, fmt.Sprint(v)}
+			values[i] = Value{"", "", v, false, test.signed, fmt.Sprint(v)}
 		}
-		runs := splitIntoRuns(values)
+		runs := splitIntoRuns(values, false)
 		if len(runs) != len(test.output) {
 			t.Errorf("#%d: %v: got %d runs; expected %d", n, test.input, len(runs), len(test.output))
 			continue

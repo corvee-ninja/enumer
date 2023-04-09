@@ -45,6 +45,7 @@ func (af *arrayFlags) Set(value string) error {
 
 var (
 	typeNames       = flag.String("type", "", "comma-separated list of type names; must be set")
+	isString        = flag.Bool("isString", false, "use if the types have string bases")
 	sql             = flag.Bool("sql", false, "if true, the Scanner and Valuer interface will be implemented.")
 	json            = flag.Bool("json", false, "if true, json marshaling methods will be generated. Default: false")
 	yaml            = flag.Bool("yaml", false, "if true, yaml marshaling methods will be generated. Default: false")
@@ -135,7 +136,7 @@ func main() {
 
 	// Run generate for each type.
 	for _, typeName := range typs {
-		g.generate(typeName, *json, *yaml, *sql, *text, *gqlgen, *transformMethod, *trimPrefix, *addPrefix, *linecomment, *altValuesFunc)
+		g.generate(typeName, *isString, *json, *yaml, *sql, *text, *gqlgen, *transformMethod, *trimPrefix, *addPrefix, *linecomment, *altValuesFunc)
 	}
 
 	// Format the output.
@@ -194,10 +195,11 @@ type File struct {
 	pkg  *Package  // Package to which this file belongs.
 	file *ast.File // Parsed AST.
 	// These fields are reset for each type being generated.
-	typeName    string  // Name of the constant type.
-	values      []Value // Accumulator for constant values of that type.
-	trimPrefix  string
-	lineComment bool
+	typeName     string // Name of the constant type.
+	typeIsString bool
+	values       []Value // Accumulator for constant values of that type.
+	trimPrefix   string
+	lineComment  bool
 }
 
 // Package holds information about a Go package
@@ -413,14 +415,16 @@ func (g *Generator) prefixValueNames(values []Value, prefix string) {
 }
 
 // generate produces the String method for the named type.
-func (g *Generator) generate(typeName string,
+func (g *Generator) generate(typeName string, typeIsString bool,
 	includeJSON, includeYAML, includeSQL, includeText, includeGQLGen bool,
-	transformMethod string, trimPrefix string, addPrefix string, lineComment bool, includeValuesMethod bool) {
+	transformMethod string, trimPrefix string, addPrefix string, lineComment bool, includeValuesMethod bool,
+) {
 	values := make([]Value, 0, 100)
 	for _, file := range g.pkg.files {
 		file.lineComment = lineComment
 		// Set the state for this run of the walker.
 		file.typeName = typeName
+		file.typeIsString = typeIsString
 		file.values = nil
 		if file.file != nil {
 			ast.Inspect(file.file, file.genDecl)
@@ -436,11 +440,13 @@ func (g *Generator) generate(typeName string,
 		g.trimValueNames(values, prefix)
 	}
 
-	g.transformValueNames(values, transformMethod)
+	if !typeIsString {
+		g.transformValueNames(values, transformMethod)
 
-	g.prefixValueNames(values, addPrefix)
+		g.prefixValueNames(values, addPrefix)
+	}
 
-	runs := splitIntoRuns(values)
+	runs := splitIntoRuns(values, typeIsString)
 	// The decision of which pattern to use depends on the number of
 	// runs in the numbers. If there's only one, it's easy. For more than
 	// one, there's a tradeoff between complexity and size of the data
@@ -455,9 +461,9 @@ func (g *Generator) generate(typeName string,
 	// to be done some other day.
 	const runsThreshold = 10
 	switch {
-	case len(runs) == 1:
+	case len(runs) == 1 && !typeIsString:
 		g.buildOneRun(runs, typeName)
-	case len(runs) <= runsThreshold:
+	case len(runs) <= runsThreshold && !typeIsString:
 		g.buildMultipleRuns(runs, typeName)
 	default:
 		g.buildMap(runs, typeName)
@@ -489,7 +495,11 @@ func (g *Generator) generate(typeName string,
 // splitIntoRuns breaks the values into runs of contiguous sequences.
 // For example, given 1,2,3,5,6,7 it returns {1,2,3},{5,6,7}.
 // The input slice is known to be non-empty.
-func splitIntoRuns(values []Value) [][]Value {
+func splitIntoRuns(values []Value, typeIsString bool) [][]Value {
+	if typeIsString {
+		return [][]Value{values}
+	}
+
 	// We use stable sort so the lexically first name is chosen for equal elements.
 	sort.Stable(byValue(values))
 	// Remove duplicates. Stable sort has put the one we want to print first,
@@ -540,9 +550,10 @@ type Value struct {
 	// this matters is when sorting.
 	// Much of the time the str field is all we need; it is printed
 	// by Value.String.
-	value  uint64 // Will be converted to int64 when needed.
-	signed bool   // Whether the constant is a signed type.
-	str    string // The string representation given by the "go/exact" package.
+	value    uint64 // Will be converted to int64 when needed.
+	isString bool
+	signed   bool   // Whether the constant is a signed type.
+	str      string // The string representation given by the "go/exact" package.
 }
 
 func (v *Value) String() string {
@@ -612,27 +623,44 @@ func (f *File) genDecl(node ast.Node) bool {
 				log.Fatalf("no value for constant %s", n)
 			}
 			info := obj.Type().Underlying().(*types.Basic).Info()
-			if info&types.IsInteger == 0 {
-				log.Fatalf("can't handle non-integer constant type %s", typ)
+			if info&types.IsInteger == 0 && info&types.IsString == 0 {
+				log.Fatalf("can't handle non-integer, non-string constant type %s", typ)
 			}
 			value := obj.(*types.Const).Val() // Guaranteed to succeed as this is CONST.
-			if value.Kind() != exact.Int {
-				log.Fatalf("can't happen: constant is not an integer %s", n)
+
+			var isString bool
+			var isSigned bool
+			var u64 uint64
+
+			if info&types.IsInteger != 0 {
+				if value.Kind() != exact.Int {
+					log.Fatalf("can't happen: constant is not an integer %s", n)
+				}
+				i64v, isInt := exact.Int64Val(value)
+				u64v, isUint := exact.Uint64Val(value)
+				if !isInt && !isUint {
+					log.Fatalf("internal error: value of %s is not an integer: %s", n, value.String())
+				}
+				if !isInt {
+					u64 = uint64(i64v)
+				} else {
+					u64 = u64v
+				}
+
+				isSigned = info&types.IsUnsigned == 0
 			}
-			i64, isInt := exact.Int64Val(value)
-			u64, isUint := exact.Uint64Val(value)
-			if !isInt && !isUint {
-				log.Fatalf("internal error: value of %s is not an integer: %s", n, value.String())
+
+			if info&types.IsString != 0 {
+				isString = true
 			}
-			if !isInt {
-				u64 = uint64(i64)
-			}
+
 			v := Value{
 				originalName: n.Name,
 				name:         n.Name,
 				value:        u64,
-				signed:       info&types.IsUnsigned == 0,
+				signed:       isSigned,
 				str:          value.String(),
+				isString:     isString,
 			}
 			if c := vspec.Comment; f.lineComment && c != nil && len(c.List) == 1 {
 				v.name = strings.TrimSpace(c.Text())
@@ -691,7 +719,7 @@ func (g *Generator) declareIndexAndNameVar(run []Value, typeName string) {
 	g.Printf("var %s\n", index)
 	index, n = g.createLowerIndexAndNameDecl(run, typeName, "")
 	g.Printf("const %s\n", n)
-	//g.Printf("var %s\n", index)
+	// g.Printf("var %s\n", index)
 }
 
 // createIndexAndNameDecl returns the pair of declarations for the run. The caller will add "const" and "var".
@@ -774,9 +802,10 @@ func (g *Generator) buildOneRun(runs [][]Value, typeName string) {
 }
 
 // Arguments to format are:
-// 	[1]: type name
-// 	[2]: size of index element (8 for uint8 etc.)
-// 	[3]: less than zero check (for signed types)
+//
+//	[1]: type name
+//	[2]: size of index element (8 for uint8 etc.)
+//	[3]: less than zero check (for signed types)
 const stringOneRun = `func (i %[1]s) String() string {
 	if %[3]si >= %[1]s(len(_%[1]sIndex)-1) {
 		return fmt.Sprintf("%[1]s(%%d)", i)
@@ -786,10 +815,11 @@ const stringOneRun = `func (i %[1]s) String() string {
 `
 
 // Arguments to format are:
-// 	[1]: type name
-// 	[2]: lowest defined value for type, as a string
-// 	[3]: size of index element (8 for uint8 etc.)
-// 	[4]: less than zero check (for signed types)
+//
+//	[1]: type name
+//	[2]: lowest defined value for type, as a string
+//	[3]: size of index element (8 for uint8 etc.)
+//	[4]: less than zero check (for signed types)
 const stringOneRunWithOffset = `func (i %[1]s) String() string {
 	i -= %[2]s
 	if %[4]si >= %[1]s(len(_%[1]sIndex)-1) {
