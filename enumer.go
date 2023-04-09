@@ -174,8 +174,37 @@ func (i *%[1]s) UnmarshalJSON(data []byte) error {
 }
 `
 
-func (g *Generator) buildJSONMethods(runs [][]Value, typeName string, runsThreshold int) {
-	g.Printf(jsonMethods, typeName)
+// Arguments to format are:
+//
+//	[1]: type name
+const jsonMethodsString = `
+// MarshalJSON implements the json.Marshaler interface for %[1]s
+func (i %[1]s) MarshalJSON() ([]byte, error) {
+	return json.Marshal(i.String())
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface for %[1]s
+func (i *%[1]s) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return fmt.Errorf("%[1]s should be a string, got %%s", data)
+	}
+
+	*i = %[1]s(s)
+	if !.iIsA%[1]s() {
+		return fmt.Errorf("%%q is not a valid %[1]s", s)
+	}
+	
+	return nil
+}
+`
+
+func (g *Generator) buildJSONMethods(runs [][]Value, typeName string, typeIsString bool, runsThreshold int) {
+	if typeIsString {
+		g.Printf(jsonMethodsString, typeName)
+	} else {
+		g.Printf(jsonMethods, typeName)
+	}
 }
 
 // Arguments to format are:
@@ -195,8 +224,28 @@ func (i *%[1]s) UnmarshalText(text []byte) error {
 }
 `
 
-func (g *Generator) buildTextMethods(runs [][]Value, typeName string, runsThreshold int) {
-	g.Printf(textMethods, typeName)
+const textMethodsString = `
+// MarshalText implements the encoding.TextMarshaler interface for %[1]s
+func (i %[1]s) MarshalText() ([]byte, error) {
+	return []byte(i.String()), nil
+}
+
+// UnmarshalText implements the encoding.TextUnmarshaler interface for %[1]s
+func (i *%[1]s) UnmarshalText(text []byte) error {
+	*i = %[1]s(string(text))
+	if !.iIsA%[1]s() {
+		return fmt.Errorf("%%q is not a valid %[1]s", string(text))
+	}
+	return nil
+}
+`
+
+func (g *Generator) buildTextMethods(runs [][]Value, typeName string, typeIsString bool, runsThreshold int) {
+	if typeIsString {
+		g.Printf(textMethodsString, typeName)
+	} else {
+		g.Printf(textMethods, typeName)
+	}
 }
 
 // Arguments to format are:
@@ -221,6 +270,31 @@ func (i *%[1]s) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 `
 
-func (g *Generator) buildYAMLMethods(runs [][]Value, typeName string, runsThreshold int) {
-	g.Printf(yamlMethods, typeName)
+const yamlMethodsString = `
+// MarshalYAML implements a YAML Marshaler for %[1]s
+func (i %[1]s) MarshalYAML() (interface{}, error) {
+	return i.String(), nil
+}
+
+// UnmarshalYAML implements a YAML Unmarshaler for %[1]s
+func (i *%[1]s) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var s string
+	if err := unmarshal(&s); err != nil {
+		return err
+	}
+
+	*i = %[1]s(s)
+	if !.iIsA%[1]s() {
+		return fmt.Errorf("%%q is not a valid %[1]s", s)
+	}
+	return nil
+}
+`
+
+func (g *Generator) buildYAMLMethods(runs [][]Value, typeName string, typeIsString bool, runsThreshold int) {
+	if typeIsString {
+		g.Printf(yamlMethodsString, typeName)
+	} else {
+		g.Printf(yamlMethods, typeName)
+	}
 }

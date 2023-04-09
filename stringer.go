@@ -478,16 +478,16 @@ func (g *Generator) generate(typeName string, typeIsString bool,
 
 	g.buildBasicExtras(runs, typeName, runsThreshold)
 	if includeJSON {
-		g.buildJSONMethods(runs, typeName, runsThreshold)
+		g.buildJSONMethods(runs, typeName, typeIsString, runsThreshold)
 	}
 	if includeText {
-		g.buildTextMethods(runs, typeName, runsThreshold)
+		g.buildTextMethods(runs, typeName, typeIsString, runsThreshold)
 	}
 	if includeYAML {
-		g.buildYAMLMethods(runs, typeName, runsThreshold)
+		g.buildYAMLMethods(runs, typeName, typeIsString, runsThreshold)
 	}
 	if includeSQL {
-		g.addValueAndScanMethod(typeName)
+		g.addValueAndScanMethod(typeName, typeIsString)
 	}
 	if includeGQLGen {
 		g.buildGQLGenMethods(runs, typeName)
