@@ -466,7 +466,7 @@ func (g *Generator) generate(typeName string, typeIsString bool,
 	case len(runs) <= runsThreshold && !typeIsString:
 		g.buildMultipleRuns(runs, typeName)
 	default:
-		g.buildMap(runs, typeName)
+		g.buildMap(runs, typeName, typeIsString)
 	}
 	if includeValuesMethod {
 		g.buildAltStringValuesMethod(typeName)
