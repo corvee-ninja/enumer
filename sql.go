@@ -53,7 +53,7 @@ const scanMethodString = `func (i *%[1]s) Scan(value interface{}) error {
 	}
 
 	*i = %[1]s(str)
-	if !.iIsA%[1]s() {
+	if !i.IsA%[1]s() {
 		return fmt.Errorf("%%q is not a valid %[1]s", str)
 	}
 	return nil
