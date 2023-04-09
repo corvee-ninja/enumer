@@ -3,6 +3,7 @@ package main
 import "fmt"
 
 // Arguments to format are:
+//
 //	[1]: type name
 const stringNameToValueMethod = `// %[1]sString retrieves an enum value from the enum constants string name.
 // Throws an error if the param is not part of the enum.
@@ -14,11 +15,14 @@ func %[1]sString(s string) (%[1]s, error) {
 	if val, ok := _%[1]sNameToValueMap[strings.ToLower(s)]; ok {
 		return val, nil
 	}
-	return 0, fmt.Errorf("%%s does not belong to %[1]s values", s)
+
+	var zero %[1]s
+	return zero, fmt.Errorf("%%s does not belong to %[1]s values", s)
 }
 `
 
 // Arguments to format are:
+//
 //	[1]: type name
 const stringValuesMethod = `// %[1]sValues returns all values of the enum
 func %[1]sValues() []%[1]s {
@@ -27,6 +31,7 @@ func %[1]sValues() []%[1]s {
 `
 
 // Arguments to format are:
+//
 //	[1]: type name
 const stringsMethod = `// %[1]sStrings returns a slice of all String values of the enum
 func %[1]sStrings() []string {
@@ -37,6 +42,7 @@ func %[1]sStrings() []string {
 `
 
 // Arguments to format are:
+//
 //	[1]: type name
 const stringBelongsMethodLoop = `// IsA%[1]s returns "true" if the value is listed in the enum definition. "false" otherwise
 func (i %[1]s) IsA%[1]s() bool {
@@ -50,6 +56,7 @@ func (i %[1]s) IsA%[1]s() bool {
 `
 
 // Arguments to format are:
+//
 //	[1]: type name
 const stringBelongsMethodSet = `// IsA%[1]s returns "true" if the value is listed in the enum definition. "false" otherwise
 func (i %[1]s) IsA%[1]s() bool {
@@ -59,6 +66,7 @@ func (i %[1]s) IsA%[1]s() bool {
 `
 
 // Arguments to format are:
+//
 //	[1]: type name
 const altStringValuesMethod = `func (%[1]s) Values() []string {
 	return %[1]sStrings()
@@ -121,6 +129,7 @@ func (g *Generator) printValueMap(runs [][]Value, typeName string, runsThreshold
 	}
 	g.Printf("}\n\n")
 }
+
 func (g *Generator) printNamesSlice(runs [][]Value, typeName string, runsThreshold int) {
 	thereAreRuns := len(runs) > 1 && len(runs) <= runsThreshold
 	g.Printf("\nvar _%sNames = []string{\n", typeName)
@@ -144,6 +153,7 @@ func (g *Generator) printNamesSlice(runs [][]Value, typeName string, runsThresho
 }
 
 // Arguments to format are:
+//
 //	[1]: type name
 const jsonMethods = `
 // MarshalJSON implements the json.Marshaler interface for %[1]s
@@ -169,6 +179,7 @@ func (g *Generator) buildJSONMethods(runs [][]Value, typeName string, runsThresh
 }
 
 // Arguments to format are:
+//
 //	[1]: type name
 const textMethods = `
 // MarshalText implements the encoding.TextMarshaler interface for %[1]s
@@ -189,6 +200,7 @@ func (g *Generator) buildTextMethods(runs [][]Value, typeName string, runsThresh
 }
 
 // Arguments to format are:
+//
 //	[1]: type name
 const yamlMethods = `
 // MarshalYAML implements a YAML Marshaler for %[1]s

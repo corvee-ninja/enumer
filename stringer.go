@@ -472,7 +472,9 @@ func (g *Generator) generate(typeName string, typeIsString bool,
 		g.buildAltStringValuesMethod(typeName)
 	}
 
-	g.buildNoOpOrderChangeDetect(runs, typeName)
+	if !typeIsString {
+		g.buildNoOpOrderChangeDetect(runs, typeName)
+	}
 
 	g.buildBasicExtras(runs, typeName, runsThreshold)
 	if includeJSON {
